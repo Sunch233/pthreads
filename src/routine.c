@@ -121,12 +121,17 @@ static void* pmmpthread_routine(pmmpthread_routine_arg_t* routine) {
 					zval connection;
 					pmmpthread_object_connect(PMMPTHREAD_FETCH_FROM(Z_OBJ(original)), &connection);
 					zend_result task_result = pmmpthread_routine_run_function(PMMPTHREAD_FETCH_FROM(Z_OBJ(connection)));
+					if (task_result == FAILURE) {
+						//this needs to happen before we put the crashed task on the GC queue
+						//so that waiting on collect() can reliably detect errors
+						//this ensures that tests like workers-no-submit-after-task-crash.phpt work correctly
+						pmmpthread_monitor_add(&ts_obj->monitor, PMMPTHREAD_MONITOR_ERROR);
+					}
 					pmmpthread_worker_add_garbage(thread->worker_data, &done_tasks_cache, &connection);
 					zval_ptr_dtor(&connection);
 
 					if (task_result == FAILURE) {
 						//we may have run out of memory or some error that left the interpreter in an unusable state
-						pmmpthread_monitor_add(&ts_obj->monitor, PMMPTHREAD_MONITOR_ERROR);
 						break;
 					}
 				}
