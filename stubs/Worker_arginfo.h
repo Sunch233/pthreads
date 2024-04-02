@@ -1,5 +1,5 @@
 /* This is a generated file, edit the .stub.php file instead.
- * Stub hash: 3a5206f0788fb2c3f5c902dc55b866cd3fe4d2f9 */
+ * Stub hash: 22019776417751d2e37ec1e6851030a48f64cef8 */
 
 ZEND_BEGIN_ARG_WITH_RETURN_TYPE_INFO_EX(arginfo_class_pmmp_thread_Worker_collect, 0, 0, IS_LONG, 0)
 	ZEND_ARG_TYPE_INFO_WITH_DEFAULT_VALUE(0, function, IS_CALLABLE, 0, "null")

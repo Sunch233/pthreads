@@ -65,11 +65,11 @@ final class ThreadSafeArray extends ThreadSafe implements \Countable, \ArrayAcce
      */
     public function shift() : mixed{}
 
-	public function offsetGet(mixed $offset) : mixed{}
+    public function offsetGet(mixed $offset) : mixed{}
 
-	public function offsetSet(mixed $offset, mixed $value) : void{}
+    public function offsetSet(mixed $offset, mixed $value) : void{}
 
-	public function offsetExists(mixed $offset) : bool{}
+    public function offsetExists(mixed $offset) : bool{}
 
-	public function offsetUnset(mixed $offset) : void{}
+    public function offsetUnset(mixed $offset) : void{}
 }
