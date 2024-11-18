@@ -41,8 +41,12 @@ static inline zend_result pmmpthread_routine_run_function(pmmpthread_zend_object
 	pmmpthread_call_t call = PMMPTHREAD_CALL_EMPTY;
 	zval zresult;
 	zend_execute_data execute_data;
-	memset(&execute_data, 0, sizeof(execute_data));
 	zend_result result = FAILURE;
+
+	//fake stack frame to make sure zend_call_function() doesn't swallow exceptions
+	//we need to be able to pass them to the user exception handler if there is one
+	memset(&execute_data, 0, sizeof(execute_data));
+	execute_data.func = &zend_pass_function;
 
 	if (pmmpthread_monitor_check(&connection->ts_obj->monitor, PMMPTHREAD_MONITOR_ERROR)) {
 		return result;
