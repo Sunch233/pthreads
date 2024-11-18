@@ -189,8 +189,9 @@ jobs:
 
       - name: Run test suite
         working-directory: ${{ github.workspace }}/bin
+        timeout-minutes: 30
         run: |
           $env:REPORT_EXIT_STATUS=1
 
-          .\php.exe .\SDK\script\run-tests.php -P -c .\php.ini ${{ github.workspace }}\pmmpthread -q --show-diff --offline || exit 1
+          .\php.exe .\SDK\script\run-tests.php -P -q --show-diff --show-slow 30000 -n -c .\php.ini ${{ github.workspace }}\pmmpthread || exit 1
           
