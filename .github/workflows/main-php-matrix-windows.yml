@@ -64,7 +64,7 @@ jobs:
         if: steps.deps-cache.outputs.cache-hit != 'true'
         working-directory: php-sdk
         run: |
-          echo "phpsdk_deps -u -t ${{ inputs.vs-crt }} -b ${{ inputs.php }} -a ${{ inputs.vs-arch }} -s ${{ inputs.build-type }} -d "${{ steps.deps.outputs.deps_dir }}" > task.bat
+          echo "phpsdk_deps -u -t ${{ inputs.vs-crt }} -b ${{ inputs.php }} -a ${{ inputs.vs-arch }} -s ${{ inputs.build-type }} -d `"${{ steps.deps.outputs.deps_dir }}`"" > task.bat
           & .\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat -t task.bat
 
       - name: Download pthreads4w dependency
