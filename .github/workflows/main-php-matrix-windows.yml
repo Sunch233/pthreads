@@ -1,0 +1,196 @@
+name: Windows CI (reusable workflow)
+
+on:
+  workflow_call:
+    inputs:
+      php:
+        description: 'PHP version'
+        type: string
+        required: true
+      vs-arch:
+        description: 'CPU arch to build for (x86 or x64)'
+        type: string
+        default: 'x64'
+      vs-crt:
+        description: 'Visual Studio CRT for build (vc15=2017, vs16=2019, vs17=2022)'
+        type: string
+        required: true
+      build-type:
+        description: 'Build type to select deps for (stable or staging)'
+        type: string
+        default: stable
+
+env:
+  PHP_SDK_BINARY_TOOLS_VER: 2.2.0
+  PTHREAD_W32_VER: 3.0.0
+
+jobs:
+  build-php:
+    name: Build PHP & extension
+    runs-on: windows-2019
+
+    steps:
+      - name: Checkout PHP build SDK
+        uses: actions/checkout@v4
+        with:
+          repository: php/php-sdk-binary-tools
+          ref: php-sdk-${{ env.PHP_SDK_BINARY_TOOLS_VER }} #TODO: probably should update this, but haven't tested newer versions
+          path: php-sdk
+
+      - name: Checkout PHP
+        uses: actions/checkout@v4
+        with:
+          repository: php/php-src
+          ref: "PHP-${{ inputs.php }}"
+          path: php-src
+
+      - name: Checkout ext-pmmpthread
+        uses: actions/checkout@v4
+        with:
+          path: php-src/ext/ext-pmmpthread
+
+      - name: Set PHP build dependencies directory
+        id: deps
+        run: echo "deps_dir=${{ github.workspace }}\deps" >> $env:GITHUB_OUTPUT
+
+      - name: Cache PHP build dependencies
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.deps.outputs.deps_dir }}
+          key: php-deps-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.build-type }}-windows
+
+      - name: Download PHP build dependencies
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        working-directory: php-sdk
+        run: |
+          echo "phpsdk_deps -u -t ${{ inputs.vs-crt }} -b ${{ inputs.php }} -a ${{ inputs.vs-arch }} -s ${{ inputs.build-type }} -d "${{ steps.deps.outputs.deps_dir }}" > task.bat
+          & .\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat -t task.bat
+
+      - name: Download pthreads4w dependency
+        #TODO: cache this too
+        run: |
+          C:\msys64\usr\bin\wget.exe -nv https://github.com/pmmp/DependencyMirror/releases/download/mirror/pthreads4w-code-v${{ env.PTHREAD_W32_VER }}.zip -O temp.zip || exit 1
+          & "C:\Program Files\7-Zip\7z.exe" x -y temp.zip || exit 1
+          rm temp.zip || exit 1
+          mv pthreads4w-code-* pthreads4w-code || exit 1
+
+      - name: Compile pthreads4w
+        #TODO: don't need to rebuild this if cache was hit
+        working-directory: pthreads4w-code
+        run: |
+          echo "nmake VC" > task.bat
+          & "${{ github.workspace }}\php-sdk\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat" -t task.bat
+
+      - name: Copy pthreads4w files to deps dir
+        working-directory: pthreads4w-code
+        run: |
+          $DEPS_DIR="${{ steps.deps.outputs.deps_dir }}"
+          cp pthread.h "$DEPS_DIR\include\pthread.h" || exit 1
+          cp sched.h "$DEPS_DIR\include\sched.h" || exit 1
+          cp semaphore.h "$DEPS_DIR\include\semaphore.h" || exit 1
+          cp _ptw32.h "$DEPS_DIR\include\_ptw32.h" || exit 1
+          cp pthreadVC3.lib "$DEPS_DIR\lib\pthreadVC3.lib" || exit 1
+          cp pthreadVC3.dll "$DEPS_DIR\bin\pthreadVC3.dll" || exit 1
+          cp pthreadVC3.pdb "$DEPS_DIR\bin\pthreadVC3.pdb" || exit 1
+
+      - name: Compile PHP
+        id: compile
+        working-directory: php-src
+        run: |
+          $INSTALL_DIR="${{ github.workspace }}\bin"
+          echo "install_dir=$INSTALL_DIR" >> $env:GITHUB_OUTPUT
+
+          echo "call buildconf.bat" > task.bat
+          echo "call configure.bat^`
+            --disable-all^`
+            --enable-cli^`
+            --enable-zts^`
+            --with-pmmpthread=shared^`
+            --with-pmmpthread-sockets^`
+            --enable-sockets^`
+            --enable-ipv6^`
+            --enable-debug^`
+            --enable-opcache^`
+            --enable-opcache-jit^`
+            --with-prefix=`"$INSTALL_DIR`"^`
+            --with-php-build=`"${{ steps.deps.outputs.deps_dir }}`"" >> task.bat
+          echo "nmake" >> task.bat
+          echo "nmake install" >> task.bat
+          cat task.bat
+
+          # php sdk jank! woohoo
+          & "${{ github.workspace }}\php-sdk\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat" -t task.bat
+
+      - name: Add pthreads4w DLL to build result
+        working-directory: ${{ steps.compile.outputs.install_dir }}
+        run: |
+          cp "${{ steps.deps.outputs.deps_dir }}\bin\pthreadVC*.*" .\ || exit 1
+
+      - name: Upload build result
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-build-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.build-type }}-windows
+          path: ${{ steps.compile.outputs.install_dir }}
+          if-no-files-found: error
+
+  test-extension:
+    name: Test (OPcache ${{ matrix.opcache }})
+    runs-on: windows-2019
+    needs: [build-php]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        opcache:
+          - "off"
+          - "on"
+          - "jit"
+          #- "jit-tracing" #borked until 8.3 due to php-src bugs
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ${{ github.workspace }}/pmmpthread
+
+      - name: Download PHP binary
+        id: download
+        uses: actions/download-artifact@v4
+        with:
+          name: php-build-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.build-type }}-windows
+          path: ${{ github.workspace }}/bin
+
+      - name: Generate php.ini
+        working-directory: ${{ github.workspace }}/bin
+        run: |
+          echo "[PHP]" > php.ini
+          echo "extension_dir=$pwd\ext" >> php.ini
+          echo "extension=php_pmmpthread.dll" >> php.ini
+
+          $opcache = "${{ matrix.opcache }}"
+          if ($opcache -ne "off") {
+            echo "Enabling OPcache"
+            echo "zend_extension=php_opcache.dll" >> php.ini
+            echo "opcache.enable=1" >> php.ini
+            echo "opcache.enable_cli=1" >> php.ini
+            echo "opcache.protect_memory=1" >> php.ini
+            if ($opcache -eq "jit"){
+              echo "Enabling function JIT"
+              echo "opcache.jit=1205" >> php.ini
+              echo "opcache.jit_buffer_size=128M" >> php.ini
+            } elseif ( $opcache -eq "jit-tracing" ) {
+              echo "Enabling tracing JIT"
+              echo "opcache.jit=tracing" >> php.ini
+              echo "opcache.jit_buffer_size=128M" >> php.ini
+            }
+          } else {
+            echo "OPcache is not enabled for this run"
+          } 
+
+      - name: Run test suite
+        working-directory: ${{ github.workspace }}/bin
+        run: |
+          $env:REPORT_EXIT_STATUS=1
+
+          .\php.exe .\SDK\script\run-tests.php -P -c .\php.ini ${{ github.workspace }}\pmmpthread -q --show-diff --offline || exit 1
+          
