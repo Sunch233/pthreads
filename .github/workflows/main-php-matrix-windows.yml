@@ -216,6 +216,9 @@ jobs:
               echo "Enabling tracing JIT"
               echo "opcache.jit=tracing" >> php.ini
               echo "opcache.jit_buffer_size=128M" >> php.ini
+            } else {
+              echo "Disabling JIT"
+              echo "opcache.jit=0" >> php.ini
             }
           } else {
             echo "OPcache is not enabled for this run"

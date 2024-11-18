@@ -121,6 +121,8 @@ jobs:
             elif [[ "${{ matrix.opcache }}" == "jit-tracing" ]]; then
               echo "opcache.jit=tracing" >> $GITHUB_WORKSPACE/php.ini
               echo "opcache.jit_buffer_size=128M" >> $GITHUB_WORKSPACE/php.ini
+            else
+              echo "opcache.jit=0" >> $GITHUB_WORKSPACE/php.ini
             fi
           else
             echo "OPcache is not enabled for this run"
