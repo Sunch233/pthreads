@@ -343,7 +343,7 @@ static zend_live_range* pmmpthread_copy_live(zend_live_range *old, int end) {
 } /* }}} */
 
 /* {{{ */
-static zval* pmmpthread_copy_literals(const pmmpthread_ident_t* owner, zval *old, int last, void *memory) {
+static zval* pmmpthread_copy_literals(const pmmpthread_ident_t* owner, zval *old, int last, void *memory, zend_string *func_name, zend_string *filename, uint32_t lineno) {
 	zval *literals = (zval*) memory;
 	zval *literal = literals,
 		 *end = literals + last;
@@ -352,8 +352,14 @@ static zval* pmmpthread_copy_literals(const pmmpthread_ident_t* owner, zval *old
 	memcpy(memory, old, sizeof(zval) * last);
 	while (literal < end) {
 		if (pmmpthread_copy_zval(owner, literal, old_literal) == FAILURE) {
-			ZEND_ASSERT(0); //literals should always be copyable
-			ZVAL_NULL(literal);
+			zend_error_at_noreturn(
+				E_CORE_ERROR,
+				filename,
+				lineno,
+				"pmmpthread encountered a non-copyable literal of type %s in function %s",
+				zend_zval_type_name(old_literal),
+				ZSTR_VAL(func_name)
+			);
 		}
 		old_literal++;
 		literal++;
@@ -603,7 +609,7 @@ static inline zend_function* pmmpthread_copy_user_function(const pmmpthread_iden
 		}
 #endif
 
-		if (op_array->literals) op_array->literals = pmmpthread_copy_literals (owner, literals, op_array->last_literal, literals_memory);
+		if (op_array->literals) op_array->literals = pmmpthread_copy_literals (owner, literals, op_array->last_literal, literals_memory, op_array->function_name, op_array->filename, op_array->line_start);
 
 		op_array->opcodes = pmmpthread_copy_opcodes(op_array, literals, opcodes_memory);
 
