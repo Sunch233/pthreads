@@ -30,7 +30,7 @@ jobs:
       - name: Set PHP build cache key
         id: cache-key
         run: |
-          echo "key=php-debug-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.runs-on }}" >> $GITHUB_OUTPUT
+          echo "key=php-debug-${{ inputs.php }}-valgrind-${{ matrix.valgrind }}-${{ inputs.runs-on }}" >> $GITHUB_OUTPUT
 
       - name: Check PHP build cache
         uses: actions/cache@v4
