@@ -25,11 +25,6 @@ env:
   PTHREAD_W32_VER: 3.0.0
 
 jobs:
-  check-php-cache:
-    name: Check PHP build cache
-    runs-on: ${{ inputs.runs-on }}
-
-
   build-php:
     name: Build PHP
     runs-on: ${{ inputs.runs-on }}
