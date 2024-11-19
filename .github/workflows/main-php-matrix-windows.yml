@@ -31,10 +31,6 @@ jobs:
 
     concurrency: php-debug-${{ inputs.php }}-${{ inputs.runs-on }}-${{ github.ref }}
 
-    outputs:
-      cache-hit: ${{ steps.php-build-cache.outputs.cache-hit }}
-      key: ${{ steps.cache-key.outputs.key }}
-
     steps:
       - name: Set PHP build cache key
         id: cache-key
@@ -165,7 +161,7 @@ jobs:
             bin
             php-sdk
             deps
-          key: ${{ needs.build-php.outputs.key }}
+          key: php-debug-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.runs-on }}
 
       - name: Compile extension
         run: |

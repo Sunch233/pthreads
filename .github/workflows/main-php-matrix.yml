@@ -22,10 +22,6 @@ jobs:
 
     runs-on: ${{ inputs.runs-on }}
 
-    outputs:
-      cache-hit: ${{ steps.cache.outputs.cache-hit }}
-      key: ${{ steps.cache-key.outputs.key }}
-
     steps:
       - name: Set PHP build cache key
         id: cache-key
@@ -105,8 +101,8 @@ jobs:
       - name: Fetch PHP build cache
         uses: actions/cache/restore@v4 #fails if cache is missing
         with:
-          path: ${{ github.workspace }}/php 
-          key: ${{ needs.build-php.outputs.key }}
+          path: ${{ github.workspace }}/php
+          key: php-debug-${{ inputs.php }}-valgrind-${{ matrix.valgrind-tool != 'none' && 1 || 0 }}-${{ inputs.runs-on }}
 
       - name: Install Valgrind
         if: matrix.valgrind-tool != 'none'
