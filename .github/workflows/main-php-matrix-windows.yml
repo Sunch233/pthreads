@@ -29,7 +29,11 @@ jobs:
     name: Check PHP build cache
     runs-on: ${{ inputs.runs-on }}
 
-    #allow other builds to populate this cache before checking it
+
+  build-php:
+    name: Build PHP
+    runs-on: ${{ inputs.runs-on }}
+
     concurrency: php-debug-${{ inputs.php }}-${{ inputs.runs-on }}-${{ github.ref }}
 
     outputs:
@@ -42,9 +46,9 @@ jobs:
         run: |
           echo "key=php-debug-${{ inputs.php }}-${{ inputs.vs-arch }}-${{ inputs.vs-crt }}-${{ inputs.runs-on }}" >> $env:GITHUB_OUTPUT
 
-      - name: Restore PHP build cache
+      - name: Check PHP build cache
         uses: actions/cache@v4
-        id: php-build-cache
+        id: cache
         with:
           path: |
             bin
@@ -53,14 +57,8 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
           lookup-only: true
 
-  build-php:
-    name: Build PHP
-    runs-on: ${{ inputs.runs-on }}
-    needs: [check-php-cache]
-    if: needs.check-php-cache.outputs.cache-hit != 'true'
-
-    steps:
       - name: Checkout PHP build SDK
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: php/php-sdk-binary-tools
@@ -68,7 +66,7 @@ jobs:
           path: php-sdk
 
       - name: Checkout PHP
-        if: steps.php-build-cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: php/php-src
@@ -76,6 +74,7 @@ jobs:
           path: php-src
 
       - name: Download PHP build dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: php-sdk
         run: |
           $php_base = "${{ inputs.php }}" -replace '^(\d+)\.(\d+).*','$1.$2'
@@ -90,6 +89,7 @@ jobs:
           & .\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat -t task.bat
 
       - name: Download pthreads4w dependency
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           C:\msys64\usr\bin\wget.exe -nv https://github.com/pmmp/DependencyMirror/releases/download/mirror/pthreads4w-code-v${{ env.PTHREAD_W32_VER }}.zip -O temp.zip
           & "C:\Program Files\7-Zip\7z.exe" x -y temp.zip
@@ -97,12 +97,14 @@ jobs:
           mv pthreads4w-code-* pthreads4w-code
 
       - name: Compile pthreads4w
+        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: pthreads4w-code
         run: |
           echo "nmake VC || exit 1" > task.bat
           & "${{ github.workspace }}\php-sdk\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat" -t task.bat
 
       - name: Copy pthreads4w files to deps dir
+        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: pthreads4w-code
         run: |
           $DEPS_DIR="${{ github.workspace }}\deps"
@@ -115,6 +117,7 @@ jobs:
           cp pthreadVC3.pdb "$DEPS_DIR\bin\pthreadVC3.pdb"
 
       - name: Compile PHP
+        if: steps.cache.outputs.cache-hit != 'true'
         id: compile
         working-directory: php-src
         run: |
@@ -138,25 +141,15 @@ jobs:
           & "${{ github.workspace }}\php-sdk\phpsdk-${{ inputs.vs-crt }}-${{ inputs.vs-arch }}.bat" -t task.bat
 
       - name: Add pthreads4w DLL to build result
+        if: steps.cache.outputs.cache-hit != 'true'
         working-directory: bin
         run: |
           cp "${{ github.workspace }}\deps\bin\pthreadVC*.*" .\
 
-      - name: Store PHP build cache
-        uses: actions/cache/save@v4
-        id: php-build-cache
-        with:
-          path: |
-            bin
-            php-sdk
-            deps
-          key: ${{ needs.check-php-cache.outputs.key }}
-
   test-extension:
     name: Test (OPcache ${{ matrix.opcache }})
     runs-on: ${{ inputs.runs-on }}
-    needs: [check-php-cache, build-php]
-    if: ${{ always() && !failure() && !cancelled() }} #allow build-php to be skipped
+    needs: build-php
 
     strategy:
       fail-fast: false
@@ -177,7 +170,7 @@ jobs:
             bin
             php-sdk
             deps
-          key: ${{ needs.check-php-cache.outputs.key }}
+          key: ${{ needs.build-php.outputs.key }}
 
       - name: Compile extension
         run: |
