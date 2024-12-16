@@ -79,7 +79,11 @@ void pthreads_store_sync(zend_object *object) { /* {{{ */
 	pthreads_storage *ts_val;
 	zend_bool remove;
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	ZEND_HASH_FOREACH_KEY_VAL(threaded->std.properties, idx, name, val) {
 		if (!name) {
@@ -179,7 +183,11 @@ int pthreads_store_delete(zend_object *object, zval *key) {
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 	zend_bool coerced = pthreads_store_coerce(key, &member);
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (pthreads_monitor_lock(ts_obj->monitor)) {
 		if (!pthreads_store_is_immutable(object, &member)) {
@@ -282,7 +290,11 @@ int pthreads_store_read(zend_object *object, zval *key, int type, zval *read) {
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 	zend_bool coerced = pthreads_store_coerce(key, &member);
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (!IS_PTHREADS_VOLATILE_CLASS(object->ce)) {
 		//fast path for non-Volatile object - their Threaded members are immutable
@@ -337,7 +349,11 @@ int pthreads_store_read(zend_object *object, zval *key, int type, zval *read) {
 		ZVAL_NULL(read);
 	} else {
 		if (pthreads_store_retain_in_local_cache(read)) {
-			rebuild_object_properties(&threaded->std);
+				#if PHP_VERSION_ID >= 80400
+					zend_std_get_properties_ex(&threaded->std);
+				#else
+					rebuild_object_properties(&threaded->std);
+				#endif
 			if (Z_TYPE(member) == IS_LONG) {
 				zend_hash_index_update(threaded->std.properties, Z_LVAL(member), read);
 			} else {
@@ -380,7 +396,11 @@ int pthreads_store_write(zend_object *object, zval *key, zval *write) {
 	if (Z_TYPE_P(write) == IS_OBJECT) {
 		/* when we copy out in another context, we want properties table
 			to be initialized */
-		rebuild_object_properties(Z_OBJ_P(write));
+		#if PHP_VERSION_ID >= 80400
+			zend_std_get_properties_ex(Z_OBJ_P(write));
+		#else
+			rebuild_object_properties(Z_OBJ_P(write));
+		#endif
 	}
 
 	storage = pthreads_store_create(write);
@@ -418,7 +438,11 @@ int pthreads_store_write(zend_object *object, zval *key, zval *write) {
 				This could be a volatile object, but, we don't want to break
 				normal refcounting, we'll read the reference only at volatile objects
 			*/
-			rebuild_object_properties(&threaded->std);
+			#if PHP_VERSION_ID >= 80400
+				zend_std_get_properties_ex(&threaded->std);
+			#else
+				rebuild_object_properties(&threaded->std);
+			#endif
 
 			if (Z_TYPE(member) == IS_LONG) {
 				zend_hash_index_update(threaded->std.properties, Z_LVAL(member), write);
@@ -452,7 +476,11 @@ int pthreads_store_shift(zend_object *object, zval *member) {
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (pthreads_monitor_lock(ts_obj->monitor)) {
 		zval key;
@@ -487,7 +515,11 @@ int pthreads_store_chunk(zend_object *object, zend_long size, zend_bool preserve
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (pthreads_monitor_lock(ts_obj->monitor)) {
 		HashPosition position;
@@ -533,7 +565,11 @@ int pthreads_store_pop(zend_object *object, zval *member) {
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (pthreads_monitor_lock(ts_obj->monitor)) {
 		zval key;
@@ -575,7 +611,11 @@ void pthreads_store_tohash(zend_object *object, HashTable *hash) {
 	pthreads_zend_object_t *threaded = PTHREADS_FETCH_FROM(object);
 	pthreads_object_t *ts_obj = threaded->ts_obj;
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (pthreads_monitor_lock(ts_obj->monitor)) {
 		zend_string *name = NULL;

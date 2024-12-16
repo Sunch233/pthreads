@@ -583,9 +583,15 @@ static zend_class_entry* pthreads_copy_entry(pthreads_object_t* thread, zend_cla
 	memcpy(&prepared->info.user, &candidate->info.user, sizeof(candidate->info.user));
 
 	if ((thread->options & PTHREADS_INHERIT_COMMENTS) &&
-	   (candidate->info.user.doc_comment)) {
-			prepared->info.user.doc_comment = zend_string_new(candidate->info.user.doc_comment);
-		} else prepared->info.user.doc_comment = NULL;
+		#if PHP_VERSION_ID >= 80400
+			(candidate->doc_comment)) {
+				prepared->doc_comment = pmmpthread_copy_string(candidate->doc_comment);
+			} else prepared->doc_comment = NULL;
+		#else
+			(candidate->info.user.doc_comment)) {
+				prepared->info.user.doc_comment = pmmpthread_copy_string(candidate->info.user.doc_comment);
+			} else prepared->info.user.doc_comment = NULL;
+		#endif
 	
 	if (candidate->attributes) {
 		prepared->attributes = pthreads_copy_attributes(candidate->attributes, prepared->info.user.filename);
@@ -982,11 +988,20 @@ static inline void pthreads_prepare_sapi(pthreads_object_t* thread) {
 /* {{{ */
 static inline void pthreads_rebuild_object(zval *zv) {
 	if (Z_TYPE_P(zv) == IS_OBJECT) {
-		rebuild_object_properties(Z_OBJ_P(zv));
+		#if PHP_VERSION_ID >= 80400
+			zend_std_get_properties_ex(Z_OBJ_P(zv));
+		#else
+			rebuild_object_properties(Z_OBJ_P(zv));
+		#endif
 	} else if (Z_TYPE_P(zv) == IS_ARRAY) {
 		zval *object = zend_hash_index_find(Z_ARRVAL_P(zv), 0);
 		if (object && Z_TYPE_P(object) == IS_OBJECT) {
-			rebuild_object_properties(Z_OBJ_P(object));
+			rebuild_object_properties();
+			#if PHP_VERSION_ID >= 80400
+				zend_std_get_properties_ex(Z_OBJ_P(object));
+			#else
+				rebuild_object_properties(Z_OBJ_P(object));
+			#endif
 		}
 	}
 } /* }}} */

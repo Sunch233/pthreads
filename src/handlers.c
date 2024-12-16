@@ -70,7 +70,11 @@ HashTable* pthreads_read_debug(PTHREADS_READ_DEBUG_PASSTHRU_D) {
 HashTable* pthreads_read_properties(PTHREADS_READ_PROPERTIES_PASSTHRU_D) {
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	pthreads_store_tohash(
 		&threaded->std, threaded->std.properties);
@@ -87,7 +91,11 @@ zval * pthreads_read_dimension(PTHREADS_READ_DIMENSION_PASSTHRU_D) {
 	zend_guard *guard = NULL;
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (threaded->std.ce->__get && (guard = pthreads_get_guard(&threaded->std, member)) && !((*guard) & IN_GET)) {
 		zend_fcall_info fci = empty_fcall_info;
@@ -161,7 +169,11 @@ void pthreads_write_dimension(PTHREADS_WRITE_DIMENSION_PASSTHRU_D) {
 	} else {
 		pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 
-		rebuild_object_properties(&threaded->std);
+		#if PHP_VERSION_ID >= 80400
+			zend_std_get_properties_ex(&threaded->std);
+		#else
+			rebuild_object_properties(&threaded->std);
+		#endif
 
 		zend_guard *guard = NULL;
 		if ((member && Z_TYPE_P(member) != IS_NULL) &&
@@ -271,7 +283,11 @@ void pthreads_unset_dimension(PTHREADS_UNSET_DIMENSION_PASSTHRU_D) {
 	zend_guard *guard = NULL;
 	pthreads_zend_object_t* threaded = PTHREADS_FETCH_FROM(object);
 
-	rebuild_object_properties(&threaded->std);
+	#if PHP_VERSION_ID >= 80400
+		zend_std_get_properties_ex(&threaded->std);
+	#else
+		rebuild_object_properties(&threaded->std);
+	#endif
 
 	if (threaded->std.ce->__unset && (guard = pthreads_get_guard(&threaded->std, member)) && !((*guard) & IN_UNSET)) {
 		zend_fcall_info fci = empty_fcall_info;
