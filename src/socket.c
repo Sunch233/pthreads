@@ -152,7 +152,7 @@ static inline zend_bool pthreads_socket_set_inet_addr(pthreads_socket_t *sock, s
 	struct in_addr tmp;
 	struct hostent *hentry;
 
-	if (inet_aton(ZSTR_VAL(address), &tmp)) {
+	if (inet_pton(AF_INET, ZSTR_VAL(address), &tmp)) {
 		sin->sin_addr.s_addr = tmp.s_addr;
 	} else {
 		if (ZSTR_LEN(address) > MAXFQDNLEN || !(hentry = php_network_gethostbyname(ZSTR_VAL(address)))) {
